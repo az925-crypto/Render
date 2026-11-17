@@ -50,16 +50,31 @@ jobs:
           chmod 755 app/src/main/assets/engine/stockfish
           ls -lh app/src/main/assets/engine/stockfish
 
+      - name: Generate release keystore
+        run: |
+          set -e
+          keytool -genkeypair -v \
+            -keystore app/release.keystore \
+            -alias catur -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass caturmodmenu -keypass caturmodmenu \
+            -dname "CN=Catur Mod Menu, OU=ofx, O=Catur, L=Kitchen, ST=Kitchen, C=ID" >/dev/null
+          ls -lh app/release.keystore
+
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Build release APK
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/catur-mod-menu/app/release.keystore
+          KEYSTORE_PASSWORD: caturmodmenu
+          KEYSTORE_ALIAS: catur
+          KEY_PASSWORD: caturmodmenu
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: catur-mod-menu-debug
-          path: catur-mod-menu/app/build/outputs/apk/debug/app-debug.apk
+          name: catur-mod-menu-release
+          path: catur-mod-menu/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
