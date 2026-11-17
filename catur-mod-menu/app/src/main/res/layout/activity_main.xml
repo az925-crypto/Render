@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/deep">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textColor="@color/amber"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/status_idle"
+            android:textColor="@color/cream"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btn_start"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="@string/start" />
+
+        <Button
+            android:id="@+id/btn_stop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/stop" />
+
+        <Button
+            android:id="@+id/btn_overlay_permission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/overlay_title" />
+
+        <Button
+            android:id="@+id/btn_a11y_permission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/a11y_title" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Your colour"
+            android:textColor="@color/cream" />
+
+        <Spinner
+            android:id="@+id/spin_color"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/colors" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Engine depth"
+            android:textColor="@color/cream" />
+
+        <Spinner
+            android:id="@+id/spin_depth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/depths" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Engine skill (0–20)"
+            android:textColor="@color/cream" />
+
+        <SeekBar
+            android:id="@+id/skill"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="20" />
+
+        <EditText
+            android:id="@+id/fen_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:hint="Paste FEN (optional fallback)"
+            android:importantForAutofill="no"
+            android:inputType="text"
+            android:textColor="@color/cream"
+            android:textColorHint="#9AA39B" />
+
+        <Button
+            android:id="@+id/btn_fen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Analyse FEN" />
+
+        <Button
+            android:id="@+id/btn_scan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_scan" />
+
+        <TextView
+            android:id="@+id/help"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:textColor="#B9C2BA"
+            android:textSize="12sp"
+            android:text="1. Open Chess.com and start (or resume) a game.\n2. Enable the two permissions above.\n3. Start overlay, then leave Chess.com in front.\nThe panel follows the move list and suggests a reply after each opponent move." />
+
+    </LinearLayout>
+</ScrollView>

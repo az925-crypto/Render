@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Catur Mod Menu</string>
+    <string name="a11y_desc">Reads the move list of the chess app so the floating menu can suggest a reply after your opponent moves.</string>
+    <string name="start">Start overlay</string>
+    <string name="stop">Stop overlay</string>
+    <string name="a11y_title">Accessibility access</string>
+    <string name="a11y_body">Turn on Catur Mod Menu in Settings → Accessibility. It only reads on-screen text to follow the move list.</string>
+    <string name="overlay_title">Overlay permission</string>
+    <string name="overlay_body">Allow draw over other apps so the menu can float above the chess board.</string>
+    <string name="status_idle">Engine idle</string>
+    <string name="channel_name">Catur engine</string>
+    <string name="channel_desc">Keeps the analysis engine alive while the overlay is on.</string>
+    <string name="hint_best">best</string>
+    <string name="hint_eval">eval</string>
+    <string name="hint_depth">depth</string>
+    <string name="btn_scan">Scan board</string>
+    <string name="btn_manual">FEN</string>
+    <string name="btn_refresh">Refresh</string>
+</resources>

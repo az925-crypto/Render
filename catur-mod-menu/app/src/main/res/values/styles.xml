@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ModMenu" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">@color/amber</item>
+        <item name="colorPrimaryDark">@color/deep</item>
+        <item name="colorAccent">@color/amber</item>
+        <item name="android:windowBackground">@color/deep</item>
+        <item name="android:textColorPrimary">@color/cream</item>
+    </style>
+</resources>
