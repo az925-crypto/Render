@@ -12,6 +12,7 @@ android {
         targetSdk 35
         versionCode 1
         versionName '1.0.0'
+        ndk { abiFilters 'arm64-v8a' }
     }
 
     signingConfigs {
@@ -37,7 +38,9 @@ android {
     }
 
     packagingOptions {
-        // The UCI binary is extracted from assets at runtime, not packaged as a .so.
+        // Stockfish ships as an executable native lib and must be unpacked to
+        // nativeLibraryDir so execve() is permitted on Android 10+.
+        jniLibs { useLegacyPackaging = true }
         exclude 'META-INF/*'
     }
 }

@@ -99,10 +99,9 @@ final class BoardDetector {
                 int cs = size / 8;
                 int cx = left + col * cs + cs / 2;
                 int cy = top + row * cs + cs / 2;
-                // a1 is a dark square; with white at the bottom, screen row 7 / col 0 is a1
-                boolean isLightSquare;
-                if (whiteBottom) isLightSquare = (row + col) % 2 == 1;
-                else isLightSquare = (row + col) % 2 == 0;
+                // a8, h1 and the top-left screen square are all light in a
+                // standard chessboard regardless of which colour sits at bottom.
+                boolean isLightSquare = (row + col) % 2 == 0;
                 int bg = isLightSquare ? light : dark;
 
                 Classified c = classify(src, cx, cy, cs, bg);
@@ -200,21 +199,35 @@ final class BoardDetector {
         }
         if (count < w * h * 0.04f) return null;
 
-        int minX = w, minY = h, maxX = 0, maxY = 0;
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                if (!isBoard[y * w + x]) continue;
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+        // Project the mask onto both axes and take the longest dense run.
+        // A stray green button can no longer stretch the bounding box.
+        int[] rows = new int[h], cols = new int[w];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                if (isBoard[y * w + x]) { rows[y]++; cols[x]++; }
+
+        int[] yr = longestRun(rows, (int) (w * 0.25f));
+        int[] xr = longestRun(cols, (int) (h * 0.25f));
+        if (yr == null || xr == null) return null;
+        int size = Math.min(yr[1] - yr[0] + 1, xr[1] - xr[0] + 1);
+        if (size < Math.min(w, h) * 0.25f) return null;
+        return new Rect(xr[0], yr[0], xr[0] + size, yr[0] + size);
+    }
+
+    /** Longest contiguous stretch where count >= threshold, as {start, end}. */
+    private static int[] longestRun(int[] counts, int threshold) {
+        int bestStart = -1, bestLen = 0, curStart = -1, curLen = 0;
+        for (int i = 0; i < counts.length; i++) {
+            if (counts[i] >= threshold) {
+                if (curStart < 0) curStart = i;
+                curLen++;
+                if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+            } else {
+                curStart = -1;
+                curLen = 0;
             }
         }
-        int bw = maxX - minX + 1, bh = maxY - minY + 1;
-        if (bw < w * 0.25f || bh < h * 0.25f) return null;
-        int size = Math.min(bw, bh);
-        // keep the square, anchored to the detected corner
-        return new Rect(minX, minY, minX + size, minY + size);
+        return bestStart < 0 ? null : new int[]{bestStart, bestStart + bestLen - 1};
     }
 
     private static boolean near(int c, int rgb, int tol) {

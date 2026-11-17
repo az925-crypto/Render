@@ -13,17 +13,15 @@ Folder ini dibangun **hanya lewat GitHub Action** di repo `Render`, sesuai
 1. Push folder `catur-mod-menu/` ke repo ini (branch `main`).
 2. Buka tab **Actions** → workflow **Build Catur Mod Menu** → **Run workflow**.
    Build juga jalan otomatis saat ada perubahan di folder ini.
-3. Workflow membuat keystore release lalu menjalankan `./gradlew assembleRelease`.
-   APK hanya beberapa MB — biner mesin tidak ikut dibundling.
+3. Workflow mengunduh Stockfish 19 arm64, memasangnya sebagai
+   `jniLibs/arm64-v8a/libstockfish.so`, membuat keystore, lalu menjalankan
+   `./gradlew assembleRelease`.
 4. **Cara paling gampang:** unduh `app-release.apk` langsung dari halaman rilis
    `https://github.com/az925-crypto/Render/releases/tag/v1.0.0`. Nggak perlu
    ekstrak ZIP artefak. APK sudah ditandatangani (signed), punya ikon, dan
    langsung bisa di-install.
 5. Alternatif: artefak `catur-mod-menu-release` berisi APK yang sama di dalam
    ZIP. Kalau ekstraktor di perangkat error, pakai link rilis di atas.
-5. Saat pertama kali Start overlay, aplikasi mengunduh Stockfish 19 arm64
-   (~80 MB) dari rilis resmi GitHub. Butuh koneksi internet di langkah ini;
-   setelah itu mesin tersimpan di penyimpanan privat aplikasi dan dipakai offline.
 
 Build memakai JDK 17, Gradle 8.7 wrapper, AGP 8.5.2, compileSdk 35.
 
@@ -76,8 +74,9 @@ javac Chess.java ChessTest.java && java com.catur.modmenu.Test
 
 ## Catatan teknis
 
-- Biner Stockfish tidak disimpan di repo atau APK supaya unduhan tidak putus.
-  Aplikasi mengunduhnya sekali dari rilis resmi `sf_19` saat first run.
+- Stockfish dibundling sebagai native library. Android mengekstraknya ke
+  `nativeLibraryDir`, satu-satunya lokasi milik aplikasi yang boleh dieksekusi
+  di Android 10+ — menjalankan binary dari `filesDir` akan ditolak SELinux.
 - Hak akses aksesibilitas hanya membaca teks di layar; tidak ada jaringan,
   tidak ada pengiriman data.
 - Deteksi screenshot bersifat best-effort dan bergantung tema papan. Jika

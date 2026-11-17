@@ -35,11 +35,15 @@ public class BoardWatchService extends AccessibilityService {
     public void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        // The overlay may have been started before accessibility was enabled.
+        if (ModMenuService.instance != null) setPositionListener(ModMenuService.instance);
         handler.post(this::tick);
     }
 
     private void tick() {
-        try { scan(); } catch (Exception ignored) {}
+        if (listener != null) {
+            try { scan(); } catch (Exception ignored) {}
+        }
         handler.postDelayed(this::tick, POLL_MS);
     }
 

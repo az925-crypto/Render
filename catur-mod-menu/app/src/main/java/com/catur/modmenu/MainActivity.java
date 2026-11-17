@@ -114,15 +114,15 @@ public class MainActivity extends AppCompatActivity {
         if (req == REQ_OVERLAY) {
             status.setText(Settings.canDrawOverlays(this) ? "overlay allowed" : "overlay denied");
         } else if (req == REQ_CAPTURE) {
-            if (res != RESULT_OK || data == null) { toast("screen capture not granted — move list still works"); }
-            else {
-                MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
-                MediaProjectionHolder.set(mpm.getMediaProjection(res, data));
-            }
+            if (res != RESULT_OK || data == null) toast("no capture — move list still works");
             Intent i = new Intent(this, ModMenuService.class);
             i.putExtra("depth", prefs.getInt("depth", 12));
             i.putExtra("whitePlayer", prefs.getInt("white", 1) == 0);
             i.putExtra("skill", prefs.getInt("skill", 10));
+            // The token is one-shot and must be turned into a MediaProjection
+            // only after the foreground service (type mediaProjection) is live.
+            i.putExtra("projectionResult", res);
+            i.putExtra("projectionData", data);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i);
             else startService(i);
             status.setText("overlay running — switch to the chess app");

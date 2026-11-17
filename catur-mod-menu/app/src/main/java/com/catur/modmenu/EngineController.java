@@ -6,14 +6,10 @@ import android.os.Looper;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -204,101 +200,15 @@ final class EngineController {
         }
     }
 
-    private static final String ENGINE_URL =
-            "https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-android-arm64-universal.tar.gz";
-    private static final long ENGINE_MIN = 90L * 1024 * 1024; // extracted sf_19 arm64 is ~97 MB
-
+    /**
+     * Android 10+ (targetSdk >= 29) blocks execve() from writable app dirs.
+     * A packaged native library is extracted to nativeLibraryDir, which is the
+     * one app-owned location SELinux allows to execute.
+     */
     private File prepareBinary() throws IOException {
-        File out = new File(ctx.getFilesDir(), "stockfish");
-        if (out.exists() && out.length() > ENGINE_MIN) return out;
-
-        // The engine is not bundled in the APK (keeps the download small).
-        // Prefer the cached copy delivered by the build; otherwise fetch it.
-        File cached = new File(ctx.getCacheDir(), "engine.tar.gz");
-        if (!cached.exists() || cached.length() < 50L * 1024 * 1024) {
-            main.post(() -> listener.onStatus("downloading engine (~80 MB), first run only"));
-            download(ENGINE_URL, cached);
-        }
-
-        File stage = new File(ctx.getFilesDir(), "engine_extract");
-        stage.mkdirs();
-        untarGz(cached, stage, "stockfish/stockfish-android-arm64-universal", out);
-        cached.delete();
-        deleteTree(stage);
-
-        if (!out.setExecutable(true, true) && !out.setExecutable(true, false))
-            throw new IOException("chmod failed");
+        File out = new File(ctx.getApplicationInfo().nativeLibraryDir, "libstockfish.so");
+        if (!out.exists()) throw new IOException("engine library missing: " + out);
         return out;
-    }
-
-    private static void download(String url, File dst) throws IOException {
-        java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-        c.setInstanceFollowRedirects(true);
-        c.setConnectTimeout(20000);
-        c.setReadTimeout(60000);
-        c.setRequestProperty("User-Agent", "CaturModMenu/1.0");
-        int code = c.getResponseCode();
-        if (code < 200 || code >= 300) throw new IOException("HTTP " + code);
-        try (InputStream in = c.getInputStream(); FileOutputStream f = new FileOutputStream(dst)) {
-            byte[] buf = new byte[128 * 1024];
-            int n;
-            while ((n = in.read(buf)) > 0) f.write(buf, 0, n);
-        } finally {
-            c.disconnect();
-        }
-        if (dst.length() < 50L * 1024 * 1024) throw new IOException("engine download incomplete");
-    }
-
-    /** Extract one named entry from a tar.gz without pulling in extra dependencies. */
-    private static void untarGz(File archive, File dest, String entry, File out) throws IOException {
-        try (InputStream fi = new java.io.FileInputStream(archive);
-             java.util.zip.GZIPInputStream gz = new java.util.zip.GZIPInputStream(fi)) {
-            byte[] hdr = new byte[512];
-            while (readFully(gz, hdr, 512)) {
-                int len = octal(hdr, 124, 12);
-                String name = new String(hdr, 0, 100, StandardCharsets.UTF_8).trim();
-                if (name.startsWith("./")) name = name.substring(2);
-                if (name.equals(entry)) {
-                    try (FileOutputStream f = new FileOutputStream(out)) {
-                        byte[] buf = new byte[64 * 1024];
-                        int left = len;
-                        while (left > 0) {
-                            int n = gz.read(buf, 0, Math.min(buf.length, left));
-                            if (n <= 0) throw new IOException("truncated engine archive");
-                            f.write(buf, 0, n);
-                            left -= n;
-                        }
-                    }
-                    return;
-                }
-                long skip = ((len + 511) / 512) * 512L;
-                while (skip > 0) skip -= gz.skip(skip);
-            }
-        }
-        throw new IOException("engine entry not found in archive");
-    }
-
-    private static boolean readFully(InputStream in, byte[] b, int n) throws IOException {
-        int off = 0;
-        while (off < n) {
-            int r = in.read(b, off, n - off);
-            if (r < 0) return off > 0;
-            off += r;
-        }
-        return true;
-    }
-
-    private static int octal(byte[] b, int off, int len) {
-        int v = 0;
-        for (int i = off; i < off + len && b[i] >= '0' && b[i] <= '7'; i++)
-            v = v * 8 + (b[i] - '0');
-        return v;
-    }
-
-    private static void deleteTree(File f) {
-        File[] kids = f.listFiles();
-        if (kids != null) for (File k : kids) deleteTree(k);
-        f.delete();
     }
 
     private void send(String cmd) throws IOException {

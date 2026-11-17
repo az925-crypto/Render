@@ -1,23 +1,27 @@
 package com.catur.modmenu;
 
+import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.pm.ServiceInfo;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
-import android.hardware.display.DisplayManager;
+import android.hardware.display.VirtualDisplay;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
-import android.view.Display;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -43,8 +47,11 @@ public class ModMenuService extends Service implements
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService jobs = Executors.newSingleThreadExecutor();
     private ImageReader reader;
-    private Display display;
+    private VirtualDisplay virtualDisplay;
+    private MediaProjection projection;
+    private MediaProjection.Callback projectionCallback;
     private String lastFen;
+    private volatile EngineController.Result lastResult;
     private int winWidth, winHeight;
     private int depth = 12;
     private boolean whitePlayer = true;
@@ -64,29 +71,95 @@ public class ModMenuService extends Service implements
         wm.getDefaultDisplay().getRealMetrics(dm);
         winWidth = dm.widthPixels;
         winHeight = dm.heightPixels;
-        display = wm.getDefaultDisplay();
         engine = new EngineController(this, this);
         detector = new BoardDetector(this);
-        startForeground(1, notification());
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        int resultCode = intent == null ? Activity.RESULT_CANCELED
+                : intent.getIntExtra("projectionResult", Activity.RESULT_CANCELED);
+        Intent token = intent == null ? null : intent.getParcelableExtra("projectionData");
+        boolean hasCapture = resultCode == Activity.RESULT_OK && token != null;
+
+        // startForeground must happen before getMediaProjection() on Android 14+.
+        int typeFlags = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
+        if (hasCapture && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            typeFlags |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+        startForegroundCompat(typeFlags);
+
         if (intent != null) {
             depth = intent.getIntExtra("depth", depth);
             whitePlayer = intent.getBooleanExtra("whitePlayer", true);
-            int skill = intent.getIntExtra("skill", 10);
-            engine.setSkill(skill);
+            engine.setSkill(intent.getIntExtra("skill", 10));
             engine.setThreads(2);
         }
+
+        if (!Settings.canDrawOverlays(this)) {
+            toast("overlay permission missing");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
+        if (hasCapture) initProjection(resultCode, token);
+
         if (!running) {
             running = true;
-            addPanel();
-            addArrow();
+            try {
+                addPanel();
+                addArrow();
+            } catch (Exception e) {
+                toast("overlay failed: " + e.getMessage());
+                stopSelf();
+                return START_NOT_STICKY;
+            }
             if (BoardWatchService.instance != null)
                 BoardWatchService.instance.setPositionListener(this);
         }
-        return START_STICKY;
+        // The MediaProjection token is single-use: never let the system
+        // restart us with a null intent and a dead capture session.
+        return START_NOT_STICKY;
+    }
+
+    private void startForegroundCompat(int typeFlags) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            startForeground(1, notification(), typeFlags);
+        else
+            startForeground(1, notification());
+    }
+
+    private void initProjection(int resultCode, Intent token) {
+        MediaProjectionManager mpm =
+                (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        projection = mpm.getMediaProjection(resultCode, token);
+
+        // Android 14+ requires a callback before createVirtualDisplay().
+        projectionCallback = new MediaProjection.Callback() {
+            @Override public void onStop() {
+                main.post(() -> {
+                    setStatus("screen capture stopped");
+                    releaseCapture();
+                    MediaProjectionHolder.clear();
+                });
+            }
+        };
+        projection.registerCallback(projectionCallback, main);
+
+        MediaProjectionHolder.set(projection);
+        DisplayMetrics dm = new DisplayMetrics();
+        wm.getDefaultDisplay().getRealMetrics(dm);
+        reader = ImageReader.newInstance(dm.widthPixels, dm.heightPixels,
+                android.graphics.PixelFormat.RGBA_8888, 2);
+        virtualDisplay = projection.createVirtualDisplay("catur-scan",
+                dm.widthPixels, dm.heightPixels, dm.densityDpi,
+                0, reader.getSurface(), null, main);
+    }
+
+    private void releaseCapture() {
+        if (virtualDisplay != null) { try { virtualDisplay.release(); } catch (Exception ignored) {} }
+        if (reader != null) { try { reader.close(); } catch (Exception ignored) {} }
+        virtualDisplay = null;
+        reader = null;
     }
 
     private void addPanel() {
@@ -167,6 +240,9 @@ public class ModMenuService extends Service implements
                         | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                         | WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS,
                 PixelFormat.TRANSLUCENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            lp.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         lp.gravity = Gravity.TOP | Gravity.START;
         lp.x = 0; lp.y = 0;
         arrowWrap = arrow;
@@ -174,7 +250,7 @@ public class ModMenuService extends Service implements
     }
 
     private void drawArrow(String fen, String uci) {
-        if (uci == null || uci.length() < 4) return;
+        if (uci == null || uci.length() < 4 || arrow == null) return;
         BoardDetector.Result board = lastBoard;
         if (board == null) { scanScreen(); return; }
         try {
@@ -194,42 +270,48 @@ public class ModMenuService extends Service implements
     private volatile BoardDetector.Result lastBoard;
 
     private void scanScreen() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        if (reader == null || virtualDisplay == null) {
+            toast("screen capture not active");
+            return;
+        }
         jobs.execute(() -> {
+            Image img = null;
+            Bitmap bmp = null;
             try {
-                DisplayMetrics dm = new DisplayMetrics();
-                wm.getDefaultDisplay().getRealMetrics(dm);
-                ImageReader r = ImageReader.newInstance(dm.widthPixels, dm.heightPixels,
-                        android.graphics.PixelFormat.RGBA_8888, 2);
-                reader = r;
-                android.media.projection.MediaProjection mp = MediaProjectionHolder.get();
-                if (mp == null) { toast("Media projection not active"); return; }
-                android.hardware.display.VirtualDisplay vd = mp.createVirtualDisplay(
-                        "catur-scan", dm.widthPixels, dm.heightPixels, dm.densityDpi,
-                        0, r.getSurface(), null, null);
-                Thread.sleep(450);
-                Image img = r.acquireLatestImage();
-                if (img == null) { vd.release(); r.close(); return; }
+                // Let the persistent VirtualDisplay produce a fresh frame.
+                Thread.sleep(300);
+                img = reader.acquireLatestImage();
+                if (img == null) { toast("no frame yet — tap again"); return; }
                 Image.Plane[] planes = img.getPlanes();
-                int pw = planes[0].getRowStride() / planes[0].getPixelStride();
-                Bitmap bmp = Bitmap.createBitmap(pw, img.getHeight(), Bitmap.Config.ARGB_8888);
-                bmp.copyPixelsFromBuffer(planes[0].getBuffer());
+                int pixelStride = planes[0].getPixelStride();
+                int rowStride = planes[0].getRowStride();
+                int width = Math.min(img.getWidth(), rowStride / pixelStride);
+                int height = img.getHeight();
+                Bitmap raw = Bitmap.createBitmap(rowStride / pixelStride, height,
+                        Bitmap.Config.ARGB_8888);
+                raw.copyPixelsFromBuffer(planes[0].getBuffer());
+                bmp = width == raw.getWidth() ? raw
+                        : Bitmap.createBitmap(raw, 0, 0, width, height);
+                if (bmp != raw) raw.recycle();
+
                 BoardDetector.Result res = detector.detect(bmp);
-                img.close();
-                bmp.recycle();
-                vd.release();
-                r.close();
+                final BoardDetector.Result found = res;
                 if (res != null && res.usable()) {
                     lastBoard = res;
                     main.post(() -> {
                         setStatus("board read from screen");
-                        if (lastFen == null) onPosition(res.fen, "screen");
+                        EngineController.Result last = lastResult;
+                        if (last != null) drawArrow(last.fen, last.bestUci);
+                        if (lastFen == null) onPosition(found.fen, "screen");
                     });
                 } else {
                     main.post(() -> toast("Board not found — check move list"));
                 }
             } catch (Exception e) {
                 main.post(() -> toast("scan: " + e.getMessage()));
+            } finally {
+                if (img != null) { try { img.close(); } catch (Exception ignored) {} }
+                if (bmp != null && !bmp.isRecycled()) bmp.recycle();
             }
         });
     }
@@ -238,6 +320,7 @@ public class ModMenuService extends Service implements
 
     @Override
     public void onResult(final EngineController.Result result) {
+        lastResult = result;
         if (engineListener != null) engineListener.onResult(result);
     }
 
@@ -255,6 +338,14 @@ public class ModMenuService extends Service implements
     @Override
     public void onPosition(String fen, String source) {
         lastFen = fen;
+        if (!"manual".equals(source)) {
+            int sp = fen.indexOf(' ');
+            char side = sp >= 0 && sp + 1 < fen.length() ? fen.charAt(sp + 1) : '?';
+            if ((side == 'w') != whitePlayer) {
+                main.post(() -> setStatus("opponent's turn"));
+                return;
+            }
+        }
         main.post(() -> setStatus("position updated (" + source + ")"));
         engine.analyze(fen, depth);
     }
@@ -288,10 +379,24 @@ public class ModMenuService extends Service implements
         running = false;
         if (BoardWatchService.instance != null)
             BoardWatchService.instance.setPositionListener(null);
-        main.post(() -> {
-            try { if (panel != null) wm.removeView(panel); } catch (Exception ignored) {}
-            try { if (arrowWrap != null) wm.removeView(arrowWrap); } catch (Exception ignored) {}
-        });
+
+        // onDestroy runs on the main thread: remove synchronously, no post.
+        try { if (panel != null) wm.removeViewImmediate(panel); } catch (Exception ignored) {}
+        try { if (arrowWrap != null) wm.removeViewImmediate(arrowWrap); } catch (Exception ignored) {}
+        panel = null;
+        arrowWrap = null;
+        arrow = null;
+
+        releaseCapture();
+        if (projection != null) {
+            if (projectionCallback != null) {
+                try { projection.unregisterCallback(projectionCallback); } catch (Exception ignored) {}
+            }
+            try { projection.stop(); } catch (Exception ignored) {}
+            projection = null;
+        }
+        MediaProjectionHolder.clear();
+
         engine.destroy();
         jobs.shutdownNow();
         instance = null;
