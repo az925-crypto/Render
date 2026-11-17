@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
+import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.Image;
 import android.media.ImageReader;
@@ -152,7 +153,8 @@ public class ModMenuService extends Service implements
                 android.graphics.PixelFormat.RGBA_8888, 2);
         virtualDisplay = projection.createVirtualDisplay("catur-scan",
                 dm.widthPixels, dm.heightPixels, dm.densityDpi,
-                0, reader.getSurface(), null, main);
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                reader.getSurface(), null, main);
     }
 
     private void releaseCapture() {
