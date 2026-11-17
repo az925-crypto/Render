@@ -15,8 +15,12 @@ Folder ini dibangun **hanya lewat GitHub Action** di repo `Render`, sesuai
    Build juga jalan otomatis saat ada perubahan di folder ini.
 3. Workflow membuat keystore release lalu menjalankan `./gradlew assembleRelease`.
    APK hanya beberapa MB — biner mesin tidak ikut dibundling.
-4. Unduh artefak `catur-mod-menu-release`, ekstrak, dapat `app-release.apk`.
-   APK ini sudah ditandatangani (signed), punya ikon, dan langsung bisa di-install.
+4. **Cara paling gampang:** unduh `app-release.apk` langsung dari halaman rilis
+   `https://github.com/az925-crypto/Render/releases/tag/v1.0.0`. Nggak perlu
+   ekstrak ZIP artefak. APK sudah ditandatangani (signed), punya ikon, dan
+   langsung bisa di-install.
+5. Alternatif: artefak `catur-mod-menu-release` berisi APK yang sama di dalam
+   ZIP. Kalau ekstraktor di perangkat error, pakai link rilis di atas.
 5. Saat pertama kali Start overlay, aplikasi mengunduh Stockfish 19 arm64
    (~80 MB) dari rilis resmi GitHub. Butuh koneksi internet di langkah ini;
    setelah itu mesin tersimpan di penyimpanan privat aplikasi dan dipakai offline.
