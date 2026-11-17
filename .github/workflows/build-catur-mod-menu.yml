@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -64,3 +64,15 @@ jobs:
           path: catur-mod-menu/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish direct APK on GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: Catur Mod Menu v1.0.0
+          files: catur-mod-menu/app/build/outputs/apk/release/app-release.apk
+          overwrite_files: true
+          generate_release_notes: false
+          body: |
+            Signed, installable APK. Download `app-release.apk` directly — no ZIP extraction needed.
+            First launch downloads the Stockfish engine (~80 MB) once, then works offline.
