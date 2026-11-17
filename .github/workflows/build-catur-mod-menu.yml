@@ -36,20 +36,6 @@ jobs:
           sdkmanager --licenses >/dev/null 2>&1 || true
           yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null
 
-      - name: Fetch Stockfish engine (arm64, NNUE embedded)
-        run: |
-          set -e
-          mkdir -p app/src/main/assets/engine
-          curl -L --fail --retry 3 --retry-delay 3 \
-            -o /tmp/stockfish.tar.gz \
-            https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-android-arm64-universal.tar.gz
-          mkdir -p /tmp/stockfish
-          tar -xzf /tmp/stockfish.tar.gz -C /tmp/stockfish
-          cp /tmp/stockfish/stockfish/stockfish-android-arm64-universal \
-             app/src/main/assets/engine/stockfish
-          chmod 755 app/src/main/assets/engine/stockfish
-          ls -lh app/src/main/assets/engine/stockfish
-
       - name: Generate release keystore
         run: |
           set -e
