@@ -13,15 +13,16 @@ Folder ini dibangun **hanya lewat GitHub Action** di repo `Render`, sesuai
 1. Push folder `catur-mod-menu/` ke repo ini (branch `main`).
 2. Buka tab **Actions** → workflow **Build Catur Mod Menu** → **Run workflow**.
    Build juga jalan otomatis saat ada perubahan di folder ini.
-3. Workflow mengunduh biner Stockfish 19 arm64 saat build, lalu menjalankan
-   `./gradlew assembleDebug`.
-4. Unduh artefak `catur-mod-menu-debug`, ekstrak, dapat `app-debug.apk`.
+3. Workflow mengunduh biner Stockfish 19 arm64 saat build, membuat keystore
+   release, lalu menjalankan `./gradlew assembleRelease`.
+4. Unduh artefak `catur-mod-menu-release`, ekstrak, dapat `app-release.apk`.
+   APK ini sudah ditandatangani (signed) dan langsung bisa di-install.
 
 Build memakai JDK 17, Gradle 8.7 wrapper, AGP 8.5.2, compileSdk 35.
 
 ## Pasang & pakai
 
-1. Install `app-debug.apk` di perangkat Android arm64 (Android 8+).
+1. Install `app-release.apk` di perangkat Android arm64 (Android 8+).
 2. Buka aplikasi, berikan izin **Draw over other apps** dan **Notifications**.
 3. Tombol **Accessibility access** → aktifkan *Catur Mod Menu* di Settings →
    Accessibility. Ini dipakai untuk membaca teks daftar langkah.
