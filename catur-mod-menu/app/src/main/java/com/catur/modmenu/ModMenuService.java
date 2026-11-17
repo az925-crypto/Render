@@ -279,7 +279,9 @@ public class ModMenuService extends Service implements
                 .build();
     }
 
-    private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
+    private void toast(final String s) {
+        main.post(() -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
+    }
 
     @Override
     public void onDestroy() {
